@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RASTHER VW - Scanner Profissional Volkswagen</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+</head>
+<body>
+    <div class="stApp">
+        <!-- HEADER VW -->
+        <div class="vw-header">
+            <div class="vw-logo">
+                <div class="vw-icon">🚗</div>
+                <div class="vw-title">
+                    <h1>RASTHER VW</h1>
+                    <p>Scanner Profissional Volkswagen</p>
+                </div>
+            </div>
+            <div class="vw-status">
+                <span class="status-led"></span>
+                <span class="status-text">AGUARDANDO CONEXÃO</span>
+            </div>
+        </div>
+
+        <!-- CONNECTION BAR -->
+        <div class="vw-connection-bar">
+            <div class="vw-connection-item">
+                <span class="conn-label">VEÍCULO</span>
+                <span class="conn-value">---</span>
+            </div>
+            <div class="vw-connection-item">
+                <span class="conn-label">PROTOCOLO</span>
+                <span class="conn-value">CAN-BUS VW</span>
+            </div>
+            <div class="vw-connection-item">
+                <span class="conn-label">ECU</span>
+                <span class="conn-value">---</span>
+            </div>
+            <div class="vw-connection-item">
+                <span class="conn-label">VERSÃO</span>
+                <span class="conn-value">v2.45</span>
+            </div>
+        </div>
+
+        <!-- NAVEGAÇÃO -->
+        <div class="vw-nav">
+            <button class="vw-nav-btn active">📊 DASHBOARD</button>
+            <button class="vw-nav-btn">🔍 DIAGNÓSTICO VW</button>
+            <button class="vw-nav-btn">⚙️ PROCEDIMENTOS</button>
+            <button class="vw-nav-btn">🔄 ADAPTAÇÕES</button>
+            <button class="vw-nav-btn">📋 BOLETINS</button>
+        </div>
+
+        <!-- CONTEÚDO PRINCIPAL -->
+        <div class="main-content">
+            <div style="text-align: center; padding: 100px 20px;">
+                <div style="font-size: 80px; margin-bottom: 20px;">🚗</div>
+                <h2 style="color: #00ffff; font-size: 32px; margin-bottom: 20px;">RASTHER VW</h2>
+                <p style="color: #888; font-size: 18px; max-width: 600px; margin: 0 auto;">
+                    Scanner profissional especializado em Volkswagen.<br>
+                    Conecte-se ao veículo para começar.
+                </p>
+                
+                <div style="margin-top: 50px; display: flex; gap: 20px; justify-content: center;">
+                    <div style="background: #1a1d24; padding: 20px; border-radius: 10px; width: 200px;">
+                        <div style="color: #ff6600; font-size: 36px;">15+</div>
+                        <div style="color: #888;">Modelos VW</div>
+                    </div>
+                    <div style="background: #1a1d24; padding: 20px; border-radius: 10px; width: 200px;">
+                        <div style="color: #ff6600; font-size: 36px;">200+</div>
+                        <div style="color: #888;">Códigos VW</div>
+                    </div>
+                    <div style="background: #1a1d24; padding: 20px; border-radius: 10px; width: 200px;">
+                        <div style="color: #ff6600; font-size: 36px;">50+</div>
+                        <div style="color: #888;">Procedimentos</div>
+                    </div>
+                </div>
+
+                <button class="vw-execute-btn" style="margin-top: 50px;" onclick="window.location.href='http://localhost:8501'">
+                    🔌 ACESSAR SCANNER
+                </button>
+            </div>
+        </div>
+
+        <!-- FOOTER -->
+        <div class="vw-footer">
+            <div>© 2026 RASTHER VW - Todos os direitos reservados</div>
+            <div>Versão 2.45 | Especialista Volkswagen</div>
+        </div>
+    </div>
+
+    <script>
+        // Simulação de status
+        setInterval(() => {
+            const led = document.querySelector('.status-led');
+            const text = document.querySelector('.status-text');
+            
+            if (Math.random() > 0.7) {
+                led.style.background = '#00ff00';
+                led.style.boxShadow = '0 0 10px #00ff00';
+                text.textContent = 'CONECTADO';
+                text.style.color = '#00ff00';
+            } else {
+                led.style.background = '#ff0000';
+                led.style.boxShadow = '0 0 10px #ff0000';
+                text.textContent = 'DESCONECTADO';
+                text.style.color = '#ff0000';
+            }
+        }, 3000);
+
+        // Navegação
+        document.querySelectorAll('.vw-nav-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.vw-nav-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+    </script>
+</body>
+</html>

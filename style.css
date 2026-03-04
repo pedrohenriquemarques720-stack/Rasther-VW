@@ -1,0 +1,376 @@
+/* style.css - Tema Volkswagen */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', 'Arial', sans-serif;
+}
+
+.stApp {
+    background: #0a0c10;
+}
+
+/* =============================================
+   HEADER VOLKSWAGEN
+   ============================================= */
+.vw-header {
+    background: linear-gradient(135deg, #001a33, #0047ab);
+    padding: 20px 30px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-left: 6px solid #ff6600;
+    box-shadow: 0 4px 15px rgba(0,71,171,0.3);
+}
+
+.vw-logo {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.vw-icon {
+    font-size: 48px;
+    filter: drop-shadow(0 0 10px #00ffff);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.vw-title h1 {
+    color: white;
+    font-size: 32px;
+    font-weight: bold;
+    margin: 0;
+    text-shadow: 0 0 10px #00ffff;
+    letter-spacing: 2px;
+}
+
+.vw-title p {
+    color: #00ffff;
+    font-size: 14px;
+    margin: 0;
+    letter-spacing: 1px;
+}
+
+.vw-status {
+    background: #1a1d24;
+    padding: 10px 25px;
+    border-radius: 40px;
+    border: 2px solid #00ffff;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.status-led {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #ff0000;
+    box-shadow: 0 0 10px #ff0000;
+}
+
+.status-led.connected {
+    background: #00ff00;
+    box-shadow: 0 0 10px #00ff00;
+}
+
+.status-text {
+    color: white;
+    font-weight: bold;
+}
+
+/* =============================================
+   CONNECTION BAR
+   ============================================= */
+.vw-connection-bar {
+    background: #1a1d24;
+    padding: 15px 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 40px;
+    border-left: 5px solid #ff6600;
+    flex-wrap: wrap;
+}
+
+.vw-connection-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.conn-label {
+    color: #888;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.conn-value {
+    color: #ff6600;
+    font-size: 16px;
+    font-weight: bold;
+    font-family: monospace;
+}
+
+/* =============================================
+   MENU DE NAVEGAÇÃO
+   ============================================= */
+.vw-nav {
+    display: flex;
+    gap: 10px;
+    margin: 20px 0;
+    flex-wrap: wrap;
+    justify-content: center;
+    background: #1a1d24;
+    padding: 10px;
+    border-radius: 50px;
+}
+
+.vw-nav-btn {
+    background: transparent;
+    color: #888;
+    border: 1px solid #333;
+    padding: 12px 25px;
+    border-radius: 30px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.vw-nav-btn:hover {
+    border-color: #0047ab;
+    color: #0047ab;
+}
+
+.vw-nav-btn.active {
+    background: #0047ab;
+    color: white;
+    border-color: #0047ab;
+    box-shadow: 0 0 20px rgba(0,71,171,0.5);
+}
+
+/* =============================================
+   CARDS DE MÉTRICAS
+   ============================================= */
+.vw-metric-card {
+    background: #1a1d24;
+    border: 1px solid #0047ab;
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    transition: 0.3s;
+}
+
+.vw-metric-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 20px rgba(0,71,171,0.3);
+}
+
+.metric-label {
+    color: #888;
+    font-size: 13px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+}
+
+.metric-value {
+    color: #00ffff;
+    font-size: 36px;
+    font-weight: bold;
+    font-family: monospace;
+}
+
+/* =============================================
+   CARDS DE DTC VW
+   ============================================= */
+.vw-dtc-card {
+    background: #1a1d24;
+    border-left: 4px solid #ff0000;
+    padding: 15px;
+    margin: 10px 0;
+    border-radius: 0 10px 10px 0;
+}
+
+.dtc-code {
+    color: #ff6666;
+    font-weight: bold;
+    font-size: 18px;
+    font-family: monospace;
+}
+
+.vw-code {
+    color: #00ffff;
+    font-size: 14px;
+    background: #0a0c10;
+    padding: 3px 10px;
+    border-radius: 15px;
+}
+
+.dtc-desc {
+    color: #ccc;
+    font-size: 14px;
+    margin-top: 5px;
+}
+
+/* =============================================
+   CARD DE SOLUÇÃO VW
+   ============================================= */
+.vw-solution-card {
+    background: linear-gradient(135deg, #1a2a33, #0f1a22);
+    padding: 20px;
+    border-radius: 10px;
+    border: 1px solid #00ffff;
+}
+
+.vw-solution-card h4 {
+    color: #ff6600;
+    font-size: 18px;
+    margin-bottom: 15px;
+}
+
+.vw-solution-card p {
+    color: #ccc;
+    margin: 10px 0;
+    line-height: 1.6;
+}
+
+.vw-solution-card ol {
+    color: #ccc;
+    margin-left: 20px;
+    line-height: 1.8;
+}
+
+/* =============================================
+   CARDS DE PROCEDIMENTOS
+   ============================================= */
+.vw-procedure-card {
+    background: #1a1d24;
+    padding: 25px;
+    border-radius: 15px;
+    border: 1px solid #ff6600;
+    margin: 10px 0;
+}
+
+.vw-procedure-card h3 {
+    color: #ff6600;
+    font-size: 20px;
+    margin-bottom: 15px;
+}
+
+.vw-procedure-card h4 {
+    color: #00ffff;
+    font-size: 16px;
+    margin: 15px 0 10px 0;
+}
+
+.vw-procedure-card p {
+    color: #ccc;
+    line-height: 1.6;
+}
+
+.vw-procedure-card ol {
+    color: #ccc;
+    margin-left: 20px;
+    line-height: 1.8;
+}
+
+.vw-procedure-card code {
+    background: #0a0c10;
+    color: #00ff00;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-family: monospace;
+    display: inline-block;
+    margin: 10px 0;
+}
+
+.vw-execute-btn {
+    background: #ff6600;
+    color: white;
+    border: none;
+    padding: 15px 30px;
+    border-radius: 30px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: 0.3s;
+}
+
+.vw-execute-btn:hover {
+    background: #ff8533;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(255,102,0,0.3);
+}
+
+/* =============================================
+   TABELA DE MODELOS VW
+   ============================================= */
+.vw-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+}
+
+.vw-table th {
+    background: #0047ab;
+    color: white;
+    padding: 12px;
+    text-align: left;
+}
+
+.vw-table td {
+    padding: 10px;
+    border-bottom: 1px solid #333;
+    color: #ccc;
+}
+
+.vw-table tr:hover {
+    background: #1a1d24;
+}
+
+/* =============================================
+   FOOTER
+   ============================================= */
+.vw-footer {
+    background: #1a1d24;
+    padding: 15px 20px;
+    border-radius: 10px;
+    margin-top: 30px;
+    display: flex;
+    justify-content: space-between;
+    color: #888;
+    font-size: 12px;
+    border-top: 1px solid #333;
+}
+
+/* =============================================
+   SCROLLBAR
+   ============================================= */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #1a1d24;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #0047ab;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #ff6600;
+}
