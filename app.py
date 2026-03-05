@@ -1,5 +1,5 @@
-# app.py - RASTHER VW - Scanner Profissional Volkswagen
-# Versão com fallback - FUNCIONA MESMO SEM PLOTLY
+# app.py - RASTHER VW PROFESSIONAL
+# Interface estilo Car Scanner / RASTHER 3S
 
 import streamlit as st
 import pandas as pd
@@ -7,413 +7,407 @@ import numpy as np
 import time
 import random
 from datetime import datetime
-
-# =============================================
-# TENTATIVA DE IMPORTAR PLOTLY COM FALLBACK
-# =============================================
-PLOTLY_AVAILABLE = False
-try:
-    import plotly.graph_objects as go
-    from plotly.subplots import make_subplots
-    PLOTLY_AVAILABLE = True
-    st.success("✅ Plotly carregado com sucesso!")
-except ImportError as e:
-    st.warning("⚠️ Plotly não disponível - gráficos serão exibidos em modo texto")
-    print(f"Erro detalhado: {e}")
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from streamlit_option_menu import option_menu
 
 # =============================================
 # CONFIGURAÇÕES DA PÁGINA
 # =============================================
 st.set_page_config(
-    page_title="RASTHER VW - Scanner Volkswagen",
+    page_title="RASTHER VW PRO",
     page_icon="🚗",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 # =============================================
-# INICIALIZAÇÃO DA SESSÃO
-# =============================================
-if 'initialized' not in st.session_state:
-    st.session_state.initialized = True
-    st.session_state.current_page = "Dashboard"
-    st.session_state.connected = False
-    st.session_state.real_mode = False
-    st.session_state.vehicle_info = {
-        'modelo': '---',
-        'ano': '---',
-        'motor': '---',
-        'vin': '---',
-        'ecu': '---',
-        'protocolo': '---',
-        'km': '---'
-    }
-    st.session_state.dtcs = []
-    st.session_state.live_data = {
-        'rpm': 0,
-        'velocidade': 0,
-        'temp_motor': 0,
-        'pressao_oleo': 0,
-        'bateria': 12.5,
-        'stft': 0,
-        'ltft': 0,
-        'maf': 0,
-        'carga_motor': 0,
-        'avanco': 0,
-        'sonda_lambda': 0.78
-    }
-    st.session_state.log = []
-    st.session_state.dtc_selecionado = None
-    st.session_state.obd_connection = None
-
-# =============================================
-# BANCO DE DADOS VOLKSWAGEN (30+ CÓDIGOS)
-# =============================================
-
-MODELOS_VW = {
-    'Gol': {
-        'anos': '2008-2024',
-        'motores': ['1.0', '1.6', '1.0 TSI'],
-        'imagem': '🚗'
-    },
-    'Polo': {
-        'anos': '2017-2024',
-        'motores': ['1.0 TSI', '1.6', '200 TSI'],
-        'imagem': '🚘'
-    },
-    'Virtus': {
-        'anos': '2018-2024',
-        'motores': ['1.0 TSI', '1.6'],
-        'imagem': '🚙'
-    },
-    'T-Cross': {
-        'anos': '2019-2024',
-        'motores': ['1.0 TSI', '1.4 TSI'],
-        'imagem': '🚐'
-    },
-    'Nivus': {
-        'anos': '2020-2024',
-        'motores': ['1.0 TSI'],
-        'imagem': '🚗'
-    },
-    'Taos': {
-        'anos': '2021-2024',
-        'motores': ['1.4 TSI'],
-        'imagem': '🚙'
-    },
-    'Saveiro': {
-        'anos': '2010-2024',
-        'motores': ['1.6'],
-        'imagem': '🛻'
-    },
-    'Amarok': {
-        'anos': '2010-2024',
-        'motores': ['2.0 TDI', '3.0 V6'],
-        'imagem': '🛻'
-    },
-    'Jetta': {
-        'anos': '2011-2024',
-        'motores': ['1.4 TSI', '2.0 TSI'],
-        'imagem': '🚘'
-    },
-    'Tiguan': {
-        'anos': '2012-2024',
-        'motores': ['2.0 TSI'],
-        'imagem': '🚙'
-    }
-}
-
-DTC_VW = {
-    'P0300': {
-        'vw_code': '17916',
-        'descricao': 'Falha de ignição aleatória',
-        'causa': 'Múltiplas falhas de ignição - bobinas ou velas',
-        'solucao': 'Verificar sistema de ignição completo',
-        'valor': 600.00,
-        'tempo': '2.0 horas'
-    },
-    'P0301': {
-        'vw_code': '17917',
-        'descricao': 'Falha de ignição - Cilindro 1',
-        'causa': 'Bobina de ignição com defeito (EA211)',
-        'solucao': 'Substituir bobina Bosch 06K905110',
-        'procedimento': [
-            'Desconectar conector da bobina',
-            'Remover parafuso de fixação (torque 8Nm)',
-            'Instalar nova bobina',
-            'Reconectar conector',
-            'Limpar códigos de falha'
-        ],
-        'valor': 450.00,
-        'tempo': '1.5 horas'
-    },
-    'P0302': {
-        'vw_code': '17918',
-        'descricao': 'Falha de ignição - Cilindro 2',
-        'causa': 'Bobina de ignição com defeito',
-        'solucao': 'Substituir bobina',
-        'valor': 450.00,
-        'tempo': '1.5 horas'
-    },
-    'P0303': {
-        'vw_code': '17919',
-        'descricao': 'Falha de ignição - Cilindro 3',
-        'causa': 'Bobina de ignição com defeito',
-        'solucao': 'Substituir bobina',
-        'valor': 450.00,
-        'tempo': '1.5 horas'
-    },
-    'P0304': {
-        'vw_code': '17920',
-        'descricao': 'Falha de ignição - Cilindro 4',
-        'causa': 'Bobina de ignição com defeito',
-        'solucao': 'Substituir bobina',
-        'valor': 450.00,
-        'tempo': '1.5 horas'
-    },
-    'P0420': {
-        'vw_code': '16804',
-        'descricao': 'Catalisador ineficiente',
-        'causa': 'Sonda lambda pós-catalisador com defeito',
-        'solucao': 'Verificar sonda lambda primeiro, depois catalisador',
-        'valor': 1850.00,
-        'tempo': '3.0 horas'
-    },
-    'P0171': {
-        'vw_code': '17544',
-        'descricao': 'Mistura pobre (Banco 1)',
-        'causa': 'Vazamento de vácuo ou sensor MAF sujo',
-        'solucao': 'Verificar mangueiras de vácuo e limpar MAF',
-        'valor': 380.00,
-        'tempo': '1.0 hora'
-    },
-    'P0172': {
-        'vw_code': '17536',
-        'descricao': 'Mistura rica (Banco 1)',
-        'causa': 'Injetores com defeito',
-        'solucao': 'Verificar injetores',
-        'valor': 450.00,
-        'tempo': '2.0 horas'
-    },
-    'P0135': {
-        'vw_code': '16519',
-        'descricao': 'Sonda Lambda - Aquecimento',
-        'causa': 'Resistência de aquecimento queimada',
-        'solucao': 'Substituir sonda lambda',
-        'valor': 380.00,
-        'tempo': '1.0 hora'
-    },
-    'P0335': {
-        'vw_code': '16705',
-        'descricao': 'Sensor de Rotação',
-        'causa': 'Sensor CKP com defeito',
-        'solucao': 'Substituir sensor de rotação',
-        'valor': 290.00,
-        'tempo': '1.0 hora'
-    },
-    'P0340': {
-        'vw_code': '16717',
-        'descricao': 'Sensor de Fase',
-        'causa': 'Sensor CMP com defeito',
-        'solucao': 'Substituir sensor de fase',
-        'valor': 320.00,
-        'tempo': '1.0 hora'
-    },
-    'P0401': {
-        'vw_code': '16785',
-        'descricao': 'EGR insuficiente',
-        'causa': 'Válvula EGR entupida',
-        'solucao': 'Limpar válvula EGR',
-        'valor': 250.00,
-        'tempo': '1.5 horas'
-    },
-    'P0442': {
-        'vw_code': '16826',
-        'descricao': 'EVAP - Vazamento pequeno',
-        'causa': 'Tampa do combustível mal fechada',
-        'solucao': 'Verificar tampa do combustível',
-        'valor': 50.00,
-        'tempo': '0.2 hora'
-    },
-    'P0505': {
-        'vw_code': '17070',
-        'descricao': 'Sistema de Marcha Lenta',
-        'causa': 'Corpo de borboleta sujo',
-        'solucao': 'Limpar corpo de borboleta e fazer adaptação',
-        'valor': 180.00,
-        'tempo': '1.0 hora'
-    },
-    'P0600': {
-        'vw_code': '16890',
-        'descricao': 'Falha de comunicação CAN',
-        'causa': 'Problema na rede CAN',
-        'solucao': 'Verificar terminações CAN',
-        'valor': 380.00,
-        'tempo': '2.0 horas'
-    }
-}
-
-PROCEDIMENTOS_VW = {
-    'reset_flex': {
-        'nome': '🔄 Reset Flex Fuel',
-        'descricao': 'Reinicia adaptações de combustível flex',
-        'passos': [
-            'Motor frio (abaixo de 30°C)',
-            'Ligar ignição sem dar partida',
-            'Aguardar 30 segundos',
-            'Acelerador totalmente pressionado por 10s',
-            'Desligar ignição por 10s',
-            'Dar partida normal'
-        ]
-    },
-    'adaptacao_borboleta': {
-        'nome': '⚙️ Adaptação de Borboleta',
-        'descricao': 'Reaprendizado da posição da borboleta',
-        'passos': [
-            'Ligar ignição (motor desligado)',
-            'Aguardar 30 segundos',
-            'Desligar ignição por 10 segundos',
-            'Ligar motor e deixar em marcha lenta por 5 minutos'
-        ]
-    }
-}
-
-# =============================================
-# CSS PERSONALIZADO
+# CSS PROFISSIONAL (ESTILO RASTHER)
 # =============================================
 st.markdown("""
 <style>
-    .stApp { background: #0a0c10; }
+    /* Tema profissional automotivo */
+    .stApp {
+        background: #0a0c10;
+    }
     
-    .vw-header {
-        background: linear-gradient(135deg, #001a33, #0047ab);
-        padding: 15px 25px;
+    /* Remove branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    .stDeployButton {display:none;}
+    
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+        background: #1a1d24;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: #0047ab;
+        border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: #ff6600;
+    }
+    
+    /* Header principal */
+    .main-header {
+        background: linear-gradient(90deg, #001a33, #0047ab);
+        padding: 10px 20px;
         border-radius: 10px;
         margin-bottom: 20px;
         display: flex;
         align-items: center;
         justify-content: space-between;
         border-left: 5px solid #ff6600;
+        box-shadow: 0 4px 15px rgba(0,71,171,0.3);
     }
     
-    .vw-logo {
+    .header-title {
         display: flex;
         align-items: center;
         gap: 15px;
     }
     
-    .vw-logo h1 {
+    .header-title h1 {
         color: white;
         font-size: 28px;
         margin: 0;
+        font-weight: 700;
+        letter-spacing: 2px;
     }
     
-    .vw-logo p {
+    .header-title p {
         color: #00ffff;
         font-size: 12px;
         margin: 0;
+        letter-spacing: 1px;
     }
     
-    .vw-status {
-        background: #1a1d24;
+    .header-status {
+        background: #0a0c10;
         padding: 8px 20px;
         border-radius: 30px;
         border: 1px solid #00ffff;
+        font-family: monospace;
+        font-size: 14px;
     }
     
-    .status-connected { color: #00ff00; font-weight: bold; }
-    .status-disconnected { color: #ff0000; font-weight: bold; }
+    .status-online { color: #00ff00; }
+    .status-offline { color: #ff0000; }
     
+    /* Connection bar */
     .connection-bar {
         background: #1a1d24;
-        padding: 15px;
+        padding: 12px 20px;
         border-radius: 8px;
-        border-left: 5px solid #ff6600;
         margin-bottom: 20px;
         display: flex;
         gap: 30px;
+        border-left: 4px solid #ff6600;
     }
     
-    .conn-item { display: flex; flex-direction: column; }
-    .conn-label { color: #888; font-size: 11px; }
-    .conn-value { color: #ff6600; font-size: 16px; font-weight: bold; }
-    
-    .nav-menu {
+    .conn-item {
         display: flex;
-        gap: 10px;
-        margin: 20px 0;
-        justify-content: center;
+        flex-direction: column;
     }
     
-    .nav-btn {
-        background: #1a1d24;
+    .conn-label {
         color: #888;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .conn-value {
+        color: #ff6600;
+        font-size: 16px;
+        font-weight: bold;
+        font-family: monospace;
+    }
+    
+    /* Medidores estilo scanner */
+    .gauge-container {
+        background: #1a1d24;
+        border: 2px solid #0047ab;
+        border-radius: 15px;
+        padding: 20px;
+        margin: 10px 0;
+        text-align: center;
+        box-shadow: 0 4px 10px rgba(0,71,171,0.2);
+    }
+    
+    .gauge-value {
+        font-size: 48px;
+        font-weight: bold;
+        color: #00ffff;
+        font-family: monospace;
+        text-shadow: 0 0 20px #00ffff;
+    }
+    
+    .gauge-label {
+        color: #888;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+    }
+    
+    .gauge-unit {
+        color: #ff6600;
+        font-size: 16px;
+        margin-left: 5px;
+    }
+    
+    /* Cards de diagnóstico */
+    .dtc-card {
+        background: #1a1d24;
+        border-left: 4px solid #ff0000;
+        padding: 15px;
+        margin: 10px 0;
+        border-radius: 0 10px 10px 0;
+        cursor: pointer;
+        transition: 0.3s;
+    }
+    
+    .dtc-card:hover {
+        background: #2a2d34;
+        transform: translateX(5px);
+    }
+    
+    .dtc-code {
+        color: #ff6666;
+        font-weight: bold;
+        font-size: 18px;
+        font-family: monospace;
+    }
+    
+    .dtc-vw {
+        color: #00ffff;
+        font-size: 14px;
+        background: #0a0c10;
+        padding: 3px 10px;
+        border-radius: 15px;
+        margin-left: 10px;
+    }
+    
+    /* Cards de procedimentos */
+    .procedure-card {
+        background: #1a1d24;
+        border: 1px solid #ff6600;
+        border-radius: 10px;
+        padding: 20px;
+        margin: 10px 0;
+    }
+    
+    .procedure-title {
+        color: #ff6600;
+        font-size: 18px;
+        font-weight: bold;
+        margin-bottom: 15px;
+        border-bottom: 1px solid #ff6600;
+        padding-bottom: 5px;
+    }
+    
+    /* Botões */
+    .vw-button {
+        background: #0047ab;
+        color: white;
+        border: none;
         padding: 10px 20px;
         border-radius: 30px;
-        border: 1px solid #333;
+        font-weight: bold;
         cursor: pointer;
+        transition: 0.3s;
+        width: 100%;
+        margin: 5px 0;
     }
     
-    .nav-btn:hover { border-color: #0047ab; color: #0047ab; }
-    .nav-btn.active { background: #0047ab; color: white; }
+    .vw-button:hover {
+        background: #ff6600;
+        transform: translateY(-2px);
+        box-shadow: 0 5px 20px rgba(255,102,0,0.3);
+    }
     
-    .metric-card {
+    /* Tabelas */
+    .data-table {
         background: #1a1d24;
         border: 1px solid #0047ab;
         border-radius: 8px;
         padding: 15px;
-        text-align: center;
+        margin: 10px 0;
     }
     
-    .metric-value { font-size: 32px; font-weight: bold; color: #00ffff; }
-    .metric-label { color: #888; font-size: 12px; }
-    
-    .dtc-card {
-        background: #1a1d24;
-        border-left: 4px solid #ff0000;
+    .data-table th {
+        color: #00ffff;
+        font-weight: bold;
         padding: 10px;
+    }
+    
+    .data-table td {
+        color: white;
+        padding: 5px 10px;
+        border-bottom: 1px solid #333;
+    }
+    
+    /* Progress bars */
+    .progress-container {
+        background: #333;
+        height: 8px;
+        border-radius: 4px;
         margin: 5px 0;
-        border-radius: 0 5px 5px 0;
-        cursor: pointer;
     }
     
-    .dtc-card:hover { background: #2a2d34; }
-    
-    .solution-card {
-        background: #1a2a33;
-        padding: 20px;
-        border-radius: 10px;
-        border: 1px solid #00ffff;
-    }
-    
-    .footer {
-        background: #1a1d24;
-        padding: 10px;
-        border-radius: 5px;
-        margin-top: 30px;
-        text-align: center;
-        color: #888;
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #00ff00, #ffff00, #ff0000);
+        border-radius: 4px;
+        transition: width 0.3s;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # =============================================
-# HEADER
+# BANCO DE DADOS VW
 # =============================================
-status_class = "status-connected" if st.session_state.connected else "status-disconnected"
-status_text = "CONECTADO" if st.session_state.connected else "DESCONECTADO"
+MODELOS_VW = {
+    'Gol': '🚗 2008-2024 | EA111/EA211',
+    'Polo': '🚘 2017-2024 | EA211',
+    'Virtus': '🚙 2018-2024 | EA211',
+    'T-Cross': '🚐 2019-2024 | EA211',
+    'Nivus': '🚗 2020-2024 | EA211',
+    'Taos': '🚙 2021-2024 | EA211',
+    'Saveiro': '🛻 2010-2024 | EA111',
+    'Amarok': '🛻 2010-2024 | V6 TDI',
+    'Jetta': '🚘 2011-2024 | EA888',
+    'Tiguan': '🚙 2012-2024 | EA888'
+}
 
+DTC_VW = {
+    'P0301': {
+        'vw': '17917',
+        'desc': 'Falha de ignição - Cilindro 1',
+        'causa': 'Bobina EA211 com defeito',
+        'solucao': 'Trocar bobina Bosch 06K905110',
+        'valor': 450,
+        'tempo': '1.5h'
+    },
+    'P0302': {
+        'vw': '17918',
+        'desc': 'Falha de ignição - Cilindro 2',
+        'causa': 'Bobina com defeito',
+        'solucao': 'Trocar bobina',
+        'valor': 450,
+        'tempo': '1.5h'
+    },
+    'P0420': {
+        'vw': '16804',
+        'desc': 'Catalisador ineficiente',
+        'causa': 'Sonda lambda ou catalisador',
+        'solucao': 'Verificar sonda lambda',
+        'valor': 1850,
+        'tempo': '3h'
+    },
+    'P0171': {
+        'vw': '17544',
+        'desc': 'Mistura pobre',
+        'causa': 'Vazamento de vácuo',
+        'solucao': 'Verificar mangueiras',
+        'valor': 380,
+        'tempo': '1h'
+    }
+}
+
+PROCEDIMENTOS = {
+    'Flex Fuel': [
+        'Motor frio (<30°C)',
+        'Ligar ignição (sem partida)',
+        'Aguardar 30s',
+        'Acelerador 100% por 10s',
+        'Desligar 10s',
+        'Dar partida'
+    ],
+    'Adaptação Borboleta': [
+        'Ligar ignição',
+        'Aguardar 30s',
+        'Desligar 10s',
+        'Ligar motor',
+        'Marcha lenta 5min'
+    ]
+}
+
+# =============================================
+# SIDEBAR - MENU PRINCIPAL
+# =============================================
+with st.sidebar:
+    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Volkswagen_logo_2019.svg/1200px-Volkswagen_logo_2019.svg.png", 
+             width=150)
+    st.markdown("---")
+    
+    selected = option_menu(
+        menu_title="RASTHER VW",
+        options=["Dashboard", "Diagnóstico", "Procedimentos", "Modelos", "Configurações"],
+        icons=["speedometer2", "exclamation-triangle", "gear", "car-front", "sliders"],
+        menu_icon="tools",
+        default_index=0,
+        styles={
+            "container": {"padding": "0!important", "background-color": "#1a1d24"},
+            "icon": {"color": "#ff6600", "font-size": "16px"},
+            "nav-link": {"color": "#888", "font-size": "14px", "text-align": "left", "margin": "0px"},
+            "nav-link-selected": {"background-color": "#0047ab", "color": "white"},
+        }
+    )
+    
+    st.markdown("---")
+    
+    # Status da conexão
+    if 'connected' not in st.session_state:
+        st.session_state.connected = False
+        st.session_state.vehicle = {
+            'modelo': 'Gol 1.6 MSI',
+            'ano': '2024',
+            'motor': 'EA211',
+            'vin': '9BWZZZ377VT004251',
+            'km': '15.234'
+        }
+        st.session_state.dtcs = []
+    
+    conn_color = "#00ff00" if st.session_state.connected else "#ff0000"
+    conn_text = "ONLINE" if st.session_state.connected else "OFFLINE"
+    
+    st.markdown(f"""
+    <div style="background:#0a0c10; padding:10px; border-radius:8px; text-align:center;">
+        <span style="color:{conn_color};">●</span> 
+        <span style="color:white;">{conn_text}</span><br>
+        <span style="color:#888;">{st.session_state.vehicle['modelo']}</span>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if not st.session_state.connected:
+        if st.button("🔌 CONECTAR", use_container_width=True):
+            st.session_state.connected = True
+            st.rerun()
+    else:
+        if st.button("❌ DESCONECTAR", use_container_width=True):
+            st.session_state.connected = False
+            st.rerun()
+
+# =============================================
+# HEADER PRINCIPAL
+# =============================================
 st.markdown(f"""
-<div class="vw-header">
-    <div class="vw-logo">
-        <div style="font-size: 40px;">🚗</div>
+<div class="main-header">
+    <div class="header-title">
+        <div style="font-size:40px;">🚗</div>
         <div>
-            <h1>RASTHER VW</h1>
-            <p>Scanner Profissional Volkswagen</p>
+            <h1>RASTHER VW PRO</h1>
+            <p>SCANNER VOLKSWAGEN PROFISSIONAL</p>
         </div>
     </div>
-    <div class="vw-status">
-        <span class="{status_class}">●</span> {status_text}
+    <div class="header-status">
+        <span class="{'status-online' if st.session_state.connected else 'status-offline'}">●</span>
+        {st.session_state.vehicle['modelo']} • {st.session_state.vehicle['km']} km
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -421,254 +415,257 @@ st.markdown(f"""
 # =============================================
 # CONNECTION BAR
 # =============================================
-col1, col2, col3, col4 = st.columns([2, 2, 2, 1])
-
-with col1:
-    st.markdown(f"""
+st.markdown(f"""
+<div class="connection-bar">
     <div class="conn-item">
         <span class="conn-label">VEÍCULO</span>
-        <span class="conn-value">{st.session_state.vehicle_info['modelo']}</span>
+        <span class="conn-value">{st.session_state.vehicle['modelo']}</span>
     </div>
-    """, unsafe_allow_html=True)
-
-with col2:
-    st.markdown(f"""
+    <div class="conn-item">
+        <span class="conn-label">MOTOR</span>
+        <span class="conn-value">{st.session_state.vehicle['motor']}</span>
+    </div>
     <div class="conn-item">
         <span class="conn-label">PROTOCOLO</span>
-        <span class="conn-value">{st.session_state.vehicle_info['protocolo']}</span>
+        <span class="conn-value">CAN 500k</span>
     </div>
-    """, unsafe_allow_html=True)
-
-with col3:
-    st.markdown(f"""
     <div class="conn-item">
-        <span class="conn-label">ECU</span>
-        <span class="conn-value">{st.session_state.vehicle_info['ecu']}</span>
+        <span class="conn-label">VIN</span>
+        <span class="conn-value">{st.session_state.vehicle['vin'][:8]}...</span>
     </div>
-    """, unsafe_allow_html=True)
-
-with col4:
-    if not st.session_state.connected:
-        if st.button("🔌 CONECTAR", use_container_width=True):
-            with st.spinner("Conectando..."):
-                time.sleep(2)
-                st.session_state.connected = True
-                st.session_state.vehicle_info = {
-                    'modelo': 'Gol 1.6 MSI',
-                    'ano': '2024',
-                    'motor': 'EA211',
-                    'vin': '9BWZZZ377VT004251',
-                    'ecu': 'BOSCH ME17.9.65',
-                    'protocolo': 'CAN-BUS',
-                    'km': '15.234 km'
-                }
-                st.rerun()
-    else:
-        if st.button("❌ DESCONECTAR", use_container_width=True):
-            st.session_state.connected = False
-            st.session_state.dtcs = []
-            st.rerun()
-
-# =============================================
-# MENU DE NAVEGAÇÃO
-# =============================================
-pages = ["Dashboard", "Diagnóstico VW", "Procedimentos", "Modelos VW"]
-
-cols = st.columns(len(pages))
-for i, page in enumerate(pages):
-    with cols[i]:
-        if st.button(page, key=f"nav_{page}", use_container_width=True):
-            st.session_state.current_page = page
-            st.rerun()
-
-st.markdown("<br>", unsafe_allow_html=True)
-
-# =============================================
-# DADOS SIMULADOS
-# =============================================
-if st.session_state.connected:
-    st.session_state.live_data = {
-        'rpm': random.randint(750, 3500),
-        'velocidade': random.randint(0, 120),
-        'temp_motor': random.randint(82, 98),
-        'pressao_oleo': round(3.5 + random.random() * 1.5, 1),
-        'bateria': round(12 + random.random() * 2, 1),
-        'stft': round(random.uniform(-5, 15), 1),
-        'ltft': round(random.uniform(-8, 18), 1),
-        'maf': round(2.5 + random.random() * 3, 1),
-        'carga_motor': random.randint(15, 55),
-        'avanco': random.randint(8, 22),
-        'sonda_lambda': round(0.7 + random.random() * 0.2, 2)
-    }
+</div>
+""", unsafe_allow_html=True)
 
 # =============================================
 # DASHBOARD
 # =============================================
-if st.session_state.current_page == "Dashboard":
-    st.markdown("## 📊 PAINEL PRINCIPAL")
+if selected == "Dashboard":
+    st.markdown("## 📊 PAINEL DE CONTROLE")
     
     if not st.session_state.connected:
-        st.info("👆 Conecte-se a um veículo para ver os dados")
+        st.warning("⚠️ Conecte-se a um veículo para visualizar dados")
     else:
-        # Métricas
+        # Gerar dados simulados
+        rpm = random.randint(750, 6500)
+        temp = random.randint(82, 105)
+        pressao = round(3.5 + random.random() * 2, 1)
+        bateria = round(12 + random.random() * 2, 1)
+        stft = round(random.uniform(-10, 10), 1)
+        ltft = round(random.uniform(-10, 10), 1)
+        maf = round(2.5 + random.random() * 5, 1)
+        carga = random.randint(15, 85)
+        
+        # Medidores principais
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
             st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">RPM</div>
-                <div class="metric-value">{st.session_state.live_data['rpm']}</div>
+            <div class="gauge-container">
+                <div class="gauge-value">{rpm}</div>
+                <div class="gauge-label">RPM <span class="gauge-unit">rpm</span></div>
             </div>
             """, unsafe_allow_html=True)
         
         with col2:
             st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">TEMP. MOTOR</div>
-                <div class="metric-value">{st.session_state.live_data['temp_motor']}°C</div>
+            <div class="gauge-container">
+                <div class="gauge-value">{temp}°C</div>
+                <div class="gauge-label">TEMPERATURA</div>
             </div>
             """, unsafe_allow_html=True)
         
         with col3:
             st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">PRESSÃO ÓLEO</div>
-                <div class="metric-value">{st.session_state.live_data['pressao_oleo']} bar</div>
+            <div class="gauge-container">
+                <div class="gauge-value">{pressao}</div>
+                <div class="gauge-label">PRESSÃO ÓLEO <span class="gauge-unit">bar</span></div>
             </div>
             """, unsafe_allow_html=True)
         
         with col4:
             st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">BATERIA</div>
-                <div class="metric-value">{st.session_state.live_data['bateria']}V</div>
+            <div class="gauge-container">
+                <div class="gauge-value">{bateria}V</div>
+                <div class="gauge-label">BATERIA</div>
             </div>
             """, unsafe_allow_html=True)
         
-        # Substituir gráficos por tabela
+        # Gráficos
         st.markdown("### 📈 DADOS EM TEMPO REAL")
+        
+        fig = make_subplots(
+            rows=2, cols=2,
+            subplot_titles=('RPM', 'Fuel Trim', 'MAF', 'Carga Motor'),
+            specs=[[{}, {}], [{}, {}]]
+        )
+        
+        times = list(range(30))
+        rpm_data = [random.randint(750, 3500) for _ in range(30)]
+        stft_data = [random.uniform(-10, 10) for _ in range(30)]
+        ltft_data = [random.uniform(-10, 10) for _ in range(30)]
+        maf_data = [random.uniform(2, 8) for _ in range(30)]
+        carga_data = [random.randint(15, 85) for _ in range(30)]
+        
+        fig.add_trace(go.Scatter(x=times, y=rpm_data, mode='lines', 
+                                 name='RPM', line=dict(color='#00ffff', width=2)), row=1, col=1)
+        fig.add_trace(go.Scatter(x=times, y=stft_data, mode='lines', 
+                                 name='STFT', line=dict(color='#00ff00', width=2)), row=1, col=2)
+        fig.add_trace(go.Scatter(x=times, y=ltft_data, mode='lines', 
+                                 name='LTFT', line=dict(color='#ffff00', width=2)), row=1, col=2)
+        fig.add_trace(go.Scatter(x=times, y=maf_data, mode='lines', 
+                                 name='MAF', line=dict(color='#ff00ff', width=2)), row=2, col=1)
+        fig.add_trace(go.Scatter(x=times, y=carga_data, mode='lines', 
+                                 name='Carga', line=dict(color='#ff6600', width=2)), row=2, col=2)
+        
+        fig.update_layout(
+            height=500,
+            showlegend=True,
+            paper_bgcolor='#0a0c10',
+            plot_bgcolor='#1a1d24',
+            font=dict(color='white')
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Dados em tabela
         col1, col2 = st.columns(2)
         
         with col1:
+            st.markdown("### 📊 PARÂMETROS DO MOTOR")
             data = {
-                'Parâmetro': ['RPM', 'Temperatura', 'Pressão Óleo', 'Bateria'],
-                'Valor': [
-                    st.session_state.live_data['rpm'],
-                    f"{st.session_state.live_data['temp_motor']}°C",
-                    f"{st.session_state.live_data['pressao_oleo']} bar",
-                    f"{st.session_state.live_data['bateria']}V"
-                ]
+                'Parâmetro': ['RPM', 'Temperatura', 'Pressão Óleo', 'Bateria', 'Carga Motor'],
+                'Valor': [rpm, f"{temp}°C", f"{pressao} bar", f"{bateria}V", f"{carga}%"],
+                'Normal': ['750-6800', '82-105', '3.5-5.5', '12-15', '15-85']
             }
             df = pd.DataFrame(data)
-            st.table(df)
+            st.dataframe(df, use_container_width=True, hide_index=True)
         
         with col2:
+            st.markdown("### 🔧 SISTEMA DE COMBUSTÍVEL")
             data2 = {
-                'Parâmetro': ['STFT', 'LTFT', 'MAF', 'Carga Motor'],
-                'Valor': [
-                    f"{st.session_state.live_data['stft']}%",
-                    f"{st.session_state.live_data['ltft']}%",
-                    f"{st.session_state.live_data['maf']} g/s",
-                    f"{st.session_state.live_data['carga_motor']}%"
-                ]
+                'Parâmetro': ['STFT', 'LTFT', 'MAF', 'Sonda Lambda'],
+                'Valor': [f"{stft}%", f"{ltft}%", f"{maf} g/s", f"{random.uniform(0.7,0.9):.2f}V"],
+                'Normal': ['±10%', '±10%', '2.5-8', '0.1-0.9V']
             }
             df2 = pd.DataFrame(data2)
-            st.table(df2)
+            st.dataframe(df2, use_container_width=True, hide_index=True)
 
 # =============================================
-# DIAGNÓSTICO VW
+# DIAGNÓSTICO
 # =============================================
-elif st.session_state.current_page == "Diagnóstico VW":
+elif selected == "Diagnóstico":
     st.markdown("## 🔍 DIAGNÓSTICO VOLKSWAGEN")
     
-    if not st.session_state.connected:
-        st.info("👆 Conecte-se a um veículo para diagnosticar")
-    else:
-        col1, col2 = st.columns(2)
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        st.markdown("### ⚠️ CÓDIGOS DE FALHA")
         
-        with col1:
-            st.markdown("### ⚠️ CÓDIGOS DE FALHA")
-            
-            if st.button("📋 LER CÓDIGOS VW", use_container_width=True):
-                st.session_state.dtcs = [
-                    {'code': 'P0301', 'desc': 'Falha de ignição - Cilindro 1'},
-                    {'code': 'P0420', 'desc': 'Catalisador ineficiente'},
-                    {'code': 'P0171', 'desc': 'Mistura pobre'},
-                    {'code': 'P0335', 'desc': 'Sensor de Rotação'},
-                    {'code': 'P0505', 'desc': 'Sistema Marcha Lenta'}
-                ]
-            
-            if st.session_state.dtcs:
-                for dtc in st.session_state.dtcs:
-                    if st.button(f"{dtc['code']} - {dtc['desc']}", key=f"dtc_{dtc['code']}", use_container_width=True):
-                        st.session_state.dtc_selecionado = dtc['code']
+        if st.button("📋 LER CÓDIGOS", use_container_width=True):
+            st.session_state.dtcs = list(DTC_VW.keys())[:3]
         
-        with col2:
-            st.markdown("### 🛠️ SOLUÇÃO VW")
-            
-            if st.session_state.dtc_selecionado and st.session_state.dtc_selecionado in DTC_VW:
-                info = DTC_VW[st.session_state.dtc_selecionado]
-                
+        if st.button("✅ LIMPAR CÓDIGOS", use_container_width=True):
+            st.session_state.dtcs = []
+        
+        if st.session_state.dtcs:
+            for code in st.session_state.dtcs:
+                info = DTC_VW[code]
                 st.markdown(f"""
-                <div class="solution-card">
-                    <h3 style="color:#ff6600;">{st.session_state.dtc_selecionado}</h3>
-                    <p><strong>Código VW:</strong> {info['vw_code']}</p>
-                    <p><strong>Descrição:</strong> {info['descricao']}</p>
-                    <p><strong>Causa:</strong> {info['causa']}</p>
-                    <p><strong>Solução:</strong> {info['solucao']}</p>
-                    <p><strong>Procedimento:</strong></p>
-                    <ol>
-                        {''.join([f'<li>{p}</li>' for p in info.get('procedimento', ['Diagnóstico manual'])])}
-                    </ol>
-                    <p><strong>Valor estimado:</strong> R$ {info['valor']:.2f}</p>
-                    <p><strong>Tempo:</strong> {info['tempo']}</p>
+                <div class="dtc-card" onclick="alert('Selecionado')">
+                    <div style="display: flex; justify-content: space-between;">
+                        <span class="dtc-code">{code}</span>
+                        <span class="dtc-vw">VW: {info['vw']}</span>
+                    </div>
+                    <div style="color: #ccc;">{info['desc']}</div>
                 </div>
                 """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("### 🛠️ DETALHES")
+        
+        if st.session_state.dtcs:
+            code = st.session_state.dtcs[0]
+            info = DTC_VW[code]
+            
+            st.markdown(f"""
+            <div style="background:#1a2a33; padding:20px; border-radius:10px; border:1px solid #00ffff;">
+                <h3 style="color:#ff6600;">{code}</h3>
+                <p style="color:#00ffff;">VW: {info['vw']}</p>
+                <p><strong>Descrição:</strong> {info['desc']}</p>
+                <p><strong>Causa:</strong> {info['causa']}</p>
+                <p><strong>Solução:</strong> {info['solucao']}</p>
+                <p><strong>Orçamento:</strong> R$ {info['valor']} • {info['tempo']}</p>
+            </div>
+            """, unsafe_allow_html=True)
 
 # =============================================
 # PROCEDIMENTOS
 # =============================================
-elif st.session_state.current_page == "Procedimentos":
+elif selected == "Procedimentos":
     st.markdown("## ⚙️ PROCEDIMENTOS VW")
     
-    for proc in PROCEDIMENTOS_VW.values():
-        with st.expander(proc['nome']):
-            st.markdown(f"**Descrição:** {proc['descricao']}")
-            st.markdown("**Passo a passo:**")
-            for i, passo in enumerate(proc['passos'], 1):
-                st.markdown(f"{i}. {passo}")
+    tabs = st.tabs(list(PROCEDIMENTOS.keys()))
+    
+    for i, (nome, passos) in enumerate(PROCEDIMENTOS.items()):
+        with tabs[i]:
+            st.markdown(f"""
+            <div class="procedure-card">
+                <div class="procedure-title">{nome}</div>
+                <div style="color:white; margin-bottom:20px;">
+                    <strong>Passo a passo:</strong>
+                    <ol>
+                        {''.join([f'<li>{p}</li>' for p in passos])}
+                    </ol>
+                </div>
+                <button class="vw-button">▶️ EXECUTAR PROCEDIMENTO</button>
+            </div>
+            """, unsafe_allow_html=True)
 
 # =============================================
-# MODELOS VW
+# MODELOS
 # =============================================
-elif st.session_state.current_page == "Modelos VW":
-    st.markdown("## 🚗 MODELOS VOLKSWAGEN")
+elif selected == "Modelos":
+    st.markdown("## 🚗 MODELOS VW COMPATÍVEIS")
     
     cols = st.columns(3)
     for i, (modelo, info) in enumerate(MODELOS_VW.items()):
         with cols[i % 3]:
             st.markdown(f"""
-            <div style="background:#1a1d24; border:1px solid #0047ab; border-radius:8px; padding:15px; margin:5px; text-align:center;">
-                <div style="font-size:40px;">{info['imagem']}</div>
+            <div style="background:#1a1d24; border:1px solid #0047ab; border-radius:10px; padding:20px; margin:5px; text-align:center;">
+                <div style="font-size:48px;">{info[0]}</div>
                 <h4 style="color:#ff6600;">{modelo}</h4>
-                <p>📅 {info['anos']}</p>
-                <p>🔧 {', '.join(info['motores'])}</p>
+                <p style="color:#888;">{info[2:]}</p>
             </div>
             """, unsafe_allow_html=True)
+
+# =============================================
+# CONFIGURAÇÕES
+# =============================================
+elif selected == "Configurações":
+    st.markdown("## ⚙️ CONFIGURAÇÕES")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### 🔌 CONEXÃO")
+        st.radio("Protocolo", ["CAN 11-bit", "CAN 29-bit", "KWP2000", "Automático"], index=3)
+        st.number_input("Timeout (ms)", 500, 5000, 2000, 100)
+    
+    with col2:
+        st.markdown("### 🎨 INTERFACE")
+        st.selectbox("Tema", ["Dark", "Light", "Automotive"])
+        st.checkbox("Modo especialista", value=True)
+    
+    st.markdown("---")
+    st.markdown("### ℹ️ SOBRE")
+    st.info("RASTHER VW PRO v2.0 • Scanner Volkswagen Profissional")
 
 # =============================================
 # FOOTER
 # =============================================
 st.markdown("---")
 st.markdown(f"""
-<div class="footer">
-    RASTHER VW • {len(DTC_VW)} códigos VW • {datetime.now().strftime('%d/%m/%Y %H:%M')}
+<div style="text-align:center; color:#888; font-size:12px; padding:10px;">
+    RASTHER VW PRO • {len(DTC_VW)} códigos VW • {len(MODELOS_VW)} modelos compatíveis • {datetime.now().strftime('%d/%m/%Y %H:%M')}
 </div>
 """, unsafe_allow_html=True)
-
-# =============================================
-# ATUALIZAÇÃO AUTOMÁTICA
-# =============================================
-if st.session_state.connected:
-    time.sleep(2)
-    st.rerun()
